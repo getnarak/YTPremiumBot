@@ -11,8 +11,6 @@ import random, re, os, logging
 # Flask App
 # =============================
 app = Flask(__name__)
-
-# Logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 # =============================
@@ -132,26 +130,28 @@ def handle_message(event):
     info = user_state.setdefault(user_id, {"status": "greeted"})
     status = info.get("status", "greeted")
 
-    # --- เมนูเริ่มต้น / แพ็กเกจ ---
-    if text.lower() in ["เริ่ม", "เลือกแพ็กเกจ", "menu", "แพ็กเกจ", "เลือกแพ็กเกจใหม่"]:
+    # 🟢 เริ่มต้นใหม่ได้เสมอ
+    if text.lower() in ["เริ่ม", "เริ่มต้น", "เลือกแพ็กเกจ", "menu", "แพ็กเกจ", "เลือกแพ็กเกจใหม่"]:
         user_state[user_id] = {"status": "selecting_package"}
         send_package_menu(event.reply_token)
         return
 
-    # --- เลือกแพ็กเกจ ---
+    # 🔒 ถ้าผู้ใช้จบการทำงานแล้ว ไม่ตอบอะไร
+    if status == "done":
+        logging.info(f"🙈 ผู้ใช้ {user_id} อยู่ในสถานะ 'done' -> ไม่ตอบกลับ")
+        return
+
+    # 🧺 เลือกแพ็กเกจ
     if text in package_prices:
         user_state[user_id].update({
             "status": "waiting_email",
             "package": text
         })
-        reply = (
-            "💌 ได้เลยค่า~ รบกวนพิมพ์อีเมลที่ต้องการใช้สมัคร YouTube Premium ด้วยนะคะ 🌷\n"
-            "(หรือพิมพ์ 'เลือกแพ็กเกจ' เพื่อกลับไปดูเมนูอีกครั้งได้เลย 💕)"
-        )
+        reply = "💌 ได้เลยค่า~ รบกวนพิมพ์อีเมลที่ต้องการใช้สมัคร YouTube Premium ด้วยนะคะ 🌷"
         safe_reply(event.reply_token, TextSendMessage(text=reply))
         return
 
-    # --- ตรวจสอบอีเมล ---
+    # 📧 ตรวจสอบอีเมล
     if status == "waiting_email":
         email_regex = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
         if re.fullmatch(email_regex, text):
@@ -166,9 +166,8 @@ def handle_message(event):
                 "⏳ แอดมินจะรีบตรวจสอบและติดต่อกลับไวที่สุดเลยนะคะ 💖"
             )
 
-            # ✅ จบการทำงาน: เคลียร์สถานะผู้ใช้
-            user_state.pop(user_id, None)
-
+            # ✅ จบการทำงาน
+            user_state[user_id] = {"status": "done"}
             safe_reply(event.reply_token, TextSendMessage(text=reply))
         else:
             safe_reply(event.reply_token, TextSendMessage(
@@ -176,11 +175,10 @@ def handle_message(event):
             ))
         return
 
-    # --- ข้อความอื่น (หลังจากจบการทำงานแล้ว) ---
-    if status == "greeted":
-        safe_reply(event.reply_token, TextSendMessage(
-            text="😳 ขอโทษค่ะ ฉันไม่เข้าใจ พิมพ์ 'เลือกแพ็กเกจ' เพื่อดูเมนู YouTube Premium นะคะ 🍰"
-        ))
+    # 🔸 ข้อความทั่วไป (กรณีอื่น)
+    safe_reply(event.reply_token, TextSendMessage(
+        text="พิมพ์ 'เริ่มต้น' หรือ 'เลือกแพ็กเกจ' เพื่อเริ่มใช้งานใหม่นะคะ 🍓"
+    ))
 
 # =============================
 # รัน Flask Server
