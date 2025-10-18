@@ -12,7 +12,7 @@ import random, re, os, logging
 # =============================
 app = Flask(__name__)
 
-# ตั้งค่า Logging ให้ละเอียด
+# Logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 # =============================
@@ -132,19 +132,22 @@ def handle_message(event):
     info = user_state.setdefault(user_id, {"status": "greeted"})
     status = info.get("status", "greeted")
 
-    # --- เริ่มเลือกแพ็กเกจใหม่ ---
+    # --- เมนูเริ่มต้น / แพ็กเกจ ---
     if text.lower() in ["เริ่ม", "เลือกแพ็กเกจ", "menu", "แพ็กเกจ", "เลือกแพ็กเกจใหม่"]:
         user_state[user_id] = {"status": "selecting_package"}
         send_package_menu(event.reply_token)
         return
 
-    # --- เลือกแพ็กเกจโดยตรง ---
+    # --- เลือกแพ็กเกจ ---
     if text in package_prices:
         user_state[user_id].update({
             "status": "waiting_email",
             "package": text
         })
-        reply = "💌 ได้เลยค่า~ รบกวนพิมพ์อีเมลที่ต้องการใช้สมัคร YouTube Premium ด้วยนะคะ 🌷"
+        reply = (
+            "💌 ได้เลยค่า~ รบกวนพิมพ์อีเมลที่ต้องการใช้สมัคร YouTube Premium ด้วยนะคะ 🌷\n"
+            "(หรือพิมพ์ 'เลือกแพ็กเกจ' เพื่อกลับไปดูเมนูอีกครั้งได้เลย 💕)"
+        )
         safe_reply(event.reply_token, TextSendMessage(text=reply))
         return
 
@@ -160,11 +163,12 @@ def handle_message(event):
                 f"📧 อีเมล: {text}\n"
                 f"🎁 แพ็กเกจ: {package}\n"
                 f"💸 ราคา: {price}\n\n"
-                "⏳ แอดมินจะรีบตรวจสอบและติดต่อกลับไวที่สุดเลยนะคะ 💖\n"
-                "หากต้องการเลือกแพ็กเกจใหม่ พิมพ์ 'เลือกแพ็กเกจใหม่' ได้เลย 🍓"
+                "⏳ แอดมินจะรีบตรวจสอบและติดต่อกลับไวที่สุดเลยนะคะ 💖"
             )
 
-            user_state[user_id] = {"status": "greeted"}
+            # ✅ จบการทำงาน: เคลียร์สถานะผู้ใช้
+            user_state.pop(user_id, None)
+
             safe_reply(event.reply_token, TextSendMessage(text=reply))
         else:
             safe_reply(event.reply_token, TextSendMessage(
@@ -172,10 +176,11 @@ def handle_message(event):
             ))
         return
 
-    # --- ข้อความทั่วไป ---
-    safe_reply(event.reply_token, TextSendMessage(
-        text="😳 ขอโทษค่ะ ฉันไม่เข้าใจ พิมพ์ 'เลือกแพ็กเกจ' เพื่อดูเมนู YouTube Premium นะคะ 🍰"
-    ))
+    # --- ข้อความอื่น (หลังจากจบการทำงานแล้ว) ---
+    if status == "greeted":
+        safe_reply(event.reply_token, TextSendMessage(
+            text="😳 ขอโทษค่ะ ฉันไม่เข้าใจ พิมพ์ 'เลือกแพ็กเกจ' เพื่อดูเมนู YouTube Premium นะคะ 🍰"
+        ))
 
 # =============================
 # รัน Flask Server
